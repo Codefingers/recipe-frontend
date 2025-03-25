@@ -25,7 +25,7 @@ export default function RecipeFilter({
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap gap-2 items-center">
+      <div className="flex flex-wrap gap-2 items-center min-h-[2.5rem]">
         <h3 className="text-sm font-medium mr-2">Active Filters:</h3>
         {selectedTags.length > 0 ? (
           <>
@@ -35,7 +35,7 @@ export default function RecipeFilter({
                 <button
                   type="button"
                   onClick={() => onTagRemove(tag)}
-                  className="text-muted-foreground hover:text-foreground"
+                  className="text-muted-foreground hover:text-foreground flex-shrink-0"
                 >
                   <X className="h-3 w-3" />
                   <span className="sr-only">Remove {tag}</span>
