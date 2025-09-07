@@ -1,18 +1,19 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect } from "react"
 import { Search, Plus, Heart, ChefHat, PlusCircle } from "lucide-react"
 import RecipeCard from "@/components/recipe-card"
 import RecipeFilter from "@/components/recipe-filter"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import Link from "next/link"
-import { recipes } from "@/lib/data"
 import { useFavorites } from "@/hooks/use-favorites"
 import ProtectedRoute from "@/components/protected-route"
 import { useAuth } from "@/contexts/auth-context"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useToast } from "@/components/ui/use-toast"
+import { Recipe } from "@/lib/data"
+import { Skeleton } from "@/components/ui/skeleton"
 
 export default function MyRecipesPage() {
   const [searchQuery, setSearchQuery] = useState("")
@@ -21,15 +22,44 @@ export default function MyRecipesPage() {
   const { user, createMockRecipe } = useAuth()
   const { toast } = useToast()
   const [refreshKey, setRefreshKey] = useState(0)
+  const [recipes, setRecipes] = useState<Recipe[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    const fetchRecipes = async () => {
+      try {
+        setIsLoading(true)
+        setError(null)
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/recipes`)
+        if (!response.ok) {
+          throw new Error('Failed to fetch recipes')
+        }
+        const data = await response.json()
+        setRecipes(data.recipes)
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to fetch recipes')
+        toast({
+          title: "Error",
+          description: "Failed to load recipes. Please try again later.",
+          variant: "destructive",
+        })
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    fetchRecipes()
+  }, [refreshKey, toast])
 
   // Get only favorited recipes
   const favoriteRecipes = useMemo(() => {
-    return recipes.filter((recipe) => favorites.includes(recipe.id))
-  }, [favorites, refreshKey])
+    return recipes.filter((recipe: Recipe) => favorites.includes(recipe.id))
+  }, [favorites, recipes, refreshKey])
 
   // Get only created recipes
   const createdRecipes = useMemo(() => {
-    return recipes.filter((recipe) => user && recipe.authorId === user.id)
+    return recipes.filter((recipe: Recipe) => user && recipe.authorId === user.id)
   }, [recipes, user, refreshKey])
 
   // Extract all unique tags from all user recipes
@@ -45,7 +75,7 @@ export default function MyRecipesPage() {
     )
 
     uniqueRecipes.forEach((recipe) => {
-      recipe.tags.forEach((tag) => tags.add(tag))
+      recipe.tags.forEach((tag: string) => tags.add(tag))
     })
 
     return Array.from(tags).sort()
@@ -53,12 +83,12 @@ export default function MyRecipesPage() {
 
   // Filter recipes based on search query and selected tags
   const filteredFavorites = useMemo(() => {
-    return favoriteRecipes.filter((recipe) => {
+    return favoriteRecipes.filter((recipe: Recipe) => {
       // Filter by search query (title or tags)
       const matchesSearch =
         searchQuery === "" ||
         recipe.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        recipe.tags.some((tag) => tag.toLowerCase().includes(searchQuery.toLowerCase()))
+        recipe.tags.some((tag: string) => tag.toLowerCase().includes(searchQuery.toLowerCase()))
 
       // Filter by selected tags
       const matchesTags = selectedTags.length === 0 || selectedTags.every((tag) => recipe.tags.includes(tag))
@@ -69,12 +99,12 @@ export default function MyRecipesPage() {
 
   // Filter created recipes
   const filteredCreated = useMemo(() => {
-    return createdRecipes.filter((recipe) => {
+    return createdRecipes.filter((recipe: Recipe) => {
       // Filter by search query (title or tags)
       const matchesSearch =
         searchQuery === "" ||
         recipe.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        recipe.tags.some((tag) => tag.toLowerCase().includes(searchQuery.toLowerCase()))
+        recipe.tags.some((tag: string) => tag.toLowerCase().includes(searchQuery.toLowerCase()))
 
       // Filter by selected tags
       const matchesTags = selectedTags.length === 0 || selectedTags.every((tag) => recipe.tags.includes(tag))
@@ -95,14 +125,50 @@ export default function MyRecipesPage() {
     setSelectedTags([])
   }
 
-  const handleCreateMockRecipe = () => {
-    createMockRecipe()
-    setRefreshKey((prev) => prev + 1)
-    toast({
-      title: "Mock Recipe Created",
-      description: "A mock recipe has been added to your created recipes.",
-    })
+  const handleCreateMockRecipe = async () => {
+    try {
+      await createMockRecipe()
+      setRefreshKey((prev) => prev + 1)
+      toast({
+        title: "Mock Recipe Created",
+        description: "A mock recipe has been added to your created recipes.",
+      })
+    } catch (err) {
+      toast({
+        title: "Error",
+        description: "Failed to create mock recipe. Please try again.",
+        variant: "destructive",
+      })
+    }
   }
+
+  const renderRecipeGrid = (recipes: Recipe[]) => (
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+      {recipes.map((recipe: Recipe) => (
+        <RecipeCard key={recipe.id} recipe={recipe} />
+      ))}
+    </div>
+  )
+
+  const renderLoadingState = () => (
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+      {[...Array(6)].map((_, i) => (
+        <div key={i} className="space-y-3">
+          <Skeleton className="h-[200px] w-full rounded-lg" />
+          <Skeleton className="h-4 w-3/4" />
+          <Skeleton className="h-4 w-1/2" />
+        </div>
+      ))}
+    </div>
+  )
+
+  const renderErrorState = () => (
+    <div className="text-center py-12">
+      <h2 className="text-xl font-semibold mb-2">Error loading recipes</h2>
+      <p className="text-muted-foreground mb-6">{error}</p>
+      <Button onClick={() => setRefreshKey((prev) => prev + 1)}>Try Again</Button>
+    </div>
+  )
 
   return (
     <ProtectedRoute>
@@ -132,7 +198,7 @@ export default function MyRecipesPage() {
           </div>
         </div>
 
-        {allTags.length > 0 && (
+        {!isLoading && !error && allTags.length > 0 && (
           <div className="mb-8">
             <RecipeFilter
               allTags={allTags}
@@ -157,12 +223,12 @@ export default function MyRecipesPage() {
           </TabsList>
 
           <TabsContent value="favorites">
-            {filteredFavorites.length > 0 ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                {filteredFavorites.map((recipe) => (
-                  <RecipeCard key={recipe.id} recipe={recipe} />
-                ))}
-              </div>
+            {isLoading ? (
+              renderLoadingState()
+            ) : error ? (
+              renderErrorState()
+            ) : filteredFavorites.length > 0 ? (
+              renderRecipeGrid(filteredFavorites)
             ) : (
               <div className="text-center py-12">
                 {favoriteRecipes.length > 0 ? (
@@ -206,12 +272,12 @@ export default function MyRecipesPage() {
               </Button>
             </div>
 
-            {filteredCreated.length > 0 ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                {filteredCreated.map((recipe) => (
-                  <RecipeCard key={recipe.id} recipe={recipe} />
-                ))}
-              </div>
+            {isLoading ? (
+              renderLoadingState()
+            ) : error ? (
+              renderErrorState()
+            ) : filteredCreated.length > 0 ? (
+              renderRecipeGrid(filteredCreated)
             ) : (
               <div className="text-center py-12">
                 {createdRecipes.length > 0 ? (
