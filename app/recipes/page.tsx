@@ -31,7 +31,7 @@ export default function MyRecipesPage() {
       try {
         setIsLoading(true)
         setError(null)
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/recipes`)
+        const response = await fetch(`https://kgoq68r29f.execute-api.eu-west-1.amazonaws.com/prod/recipes`)
         if (!response.ok) {
           throw new Error('Failed to fetch recipes')
         }
