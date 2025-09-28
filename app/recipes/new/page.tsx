@@ -11,16 +11,23 @@ import { ArrowLeft, Plus, Trash2, Star, ArrowDown, ArrowUp, Upload } from "lucid
 import Link from "next/link"
 import { Badge } from "@/components/ui/badge"
 import ProtectedRoute from "@/components/protected-route"
-import { useAuth } from "@/contexts/auth-context"
 import { useToast } from "@/components/ui/use-toast"
 import { useRouter } from "next/navigation"
 import Image from "next/image"
+import { useAuth } from "@/contexts/auth-context"
 
 export default function NewRecipePage() {
   const { toast } = useToast()
   const router = useRouter()
+  const { user } = useAuth()
   const fileInputRef = useRef<HTMLInputElement>(null)
 
+  // Form state
+  const [title, setTitle] = useState("")
+  const [description, setDescription] = useState("")
+  const [prepTime, setPrepTime] = useState("")
+  const [cookTime, setCookTime] = useState("")
+  
   const [ingredients, setIngredients] = useState<string[]>([""])
   const [instructions, setInstructions] = useState<string[]>([""])
   const [tags, setTags] = useState<string[]>([])
@@ -29,6 +36,7 @@ export default function NewRecipePage() {
   const [imageUrl, setImageUrl] = useState("")
   const [imageFile, setImageFile] = useState<File | null>(null)
   const [imagePreview, setImagePreview] = useState<string | null>(null)
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   const addIngredient = () => {
     setIngredients([...ingredients, ""])
@@ -150,18 +158,85 @@ export default function NewRecipePage() {
     }
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    // In a real app, this would save the recipe to the database
-    // with the current user as the author and handle image upload
+    if (!user) {
+      toast({
+        title: "Error",
+        description: "You must be logged in to create a recipe",
+        variant: "destructive",
+      })
+      return
+    }
 
-    toast({
-      title: "Recipe created",
-      description: "Your recipe has been created successfully!",
-    })
+    // Filter out empty ingredients and instructions
+    const filteredIngredients = ingredients.filter(ingredient => ingredient.trim() !== "")
+    const filteredInstructions = instructions.filter(instruction => instruction.trim() !== "")
 
-    router.push("/recipes")
+    if (filteredIngredients.length === 0) {
+      toast({
+        title: "Error",
+        description: "Please add at least one ingredient",
+        variant: "destructive",
+      })
+      return
+    }
+
+    if (filteredInstructions.length === 0) {
+      toast({
+        title: "Error",
+        description: "Please add at least one instruction",
+        variant: "destructive",
+      })
+      return
+    }
+
+    setIsSubmitting(true)
+
+    try {
+      const recipeData = {
+        title,
+        description,
+        imageUrl: imageFile ? imagePreview : imageUrl, // Use preview for file uploads or URL
+        tags,
+        rating,
+        prepTime,
+        cookTime,
+        ingredients: filteredIngredients,
+        instructions: filteredInstructions,
+        authorId: user.id,
+        authorName: user.name,
+      }
+
+      const response = await fetch("https://kgoq68r29f.execute-api.eu-west-1.amazonaws.com/prod/recipes", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(recipeData),
+      })
+
+      if (!response.ok) {
+        throw new Error("Failed to create recipe")
+      }
+
+      toast({
+        title: "Recipe created",
+        description: "Your recipe has been created successfully!",
+      })
+
+      router.push("/recipes")
+    } catch (error) {
+      console.error("Error creating recipe:", error)
+      toast({
+        title: "Error",
+        description: "Failed to create recipe. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   return (
@@ -178,7 +253,13 @@ export default function NewRecipePage() {
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="title">Recipe Title</Label>
-              <Input id="title" placeholder="Enter recipe title" required />
+              <Input 
+                id="title" 
+                placeholder="Enter recipe title" 
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                required 
+              />
             </div>
 
             <div className="space-y-2">
@@ -238,18 +319,37 @@ export default function NewRecipePage() {
 
           <div className="space-y-2">
             <Label htmlFor="description">Description</Label>
-            <Textarea id="description" placeholder="Describe your recipe" rows={3} required />
+            <Textarea 
+              id="description" 
+              placeholder="Describe your recipe" 
+              rows={3} 
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              required 
+            />
           </div>
 
           <div className="grid gap-4 md:grid-cols-3">
             <div className="space-y-2">
               <Label htmlFor="prepTime">Prep Time</Label>
-              <Input id="prepTime" placeholder="e.g. 15 mins" required />
+              <Input 
+                id="prepTime" 
+                placeholder="e.g. 15 mins" 
+                value={prepTime}
+                onChange={(e) => setPrepTime(e.target.value)}
+                required 
+              />
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="cookTime">Cook Time</Label>
-              <Input id="cookTime" placeholder="e.g. 30 mins" required />
+              <Input 
+                id="cookTime" 
+                placeholder="e.g. 30 mins" 
+                value={cookTime}
+                onChange={(e) => setCookTime(e.target.value)}
+                required 
+              />
             </div>
 
             <div className="space-y-2">
@@ -407,7 +507,9 @@ export default function NewRecipePage() {
             <Button type="button" variant="outline" onClick={() => window.history.back()}>
               Cancel
             </Button>
-            <Button type="submit">Save Recipe</Button>
+            <Button type="submit" disabled={isSubmitting}>
+              {isSubmitting ? "Creating..." : "Save Recipe"}
+            </Button>
           </div>
         </form>
       </div>
