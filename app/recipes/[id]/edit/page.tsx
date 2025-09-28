@@ -10,20 +10,23 @@ import { Label } from "@/components/ui/label"
 import { ArrowLeft, Plus, Trash2, Star, ArrowDown, ArrowUp, Upload } from "lucide-react"
 import Link from "next/link"
 import { Badge } from "@/components/ui/badge"
-import { recipes } from "@/lib/data"
 import { useParams, useRouter } from "next/navigation"
 import ProtectedRoute from "@/components/protected-route"
 import { useAuth } from "@/contexts/auth-context"
 import { useToast } from "@/components/ui/use-toast"
 import Image from "next/image"
+import { Recipe } from "@/lib/data"
 
 export default function EditRecipePage() {
   const router = useRouter()
   const { id } = useParams<{ id: string }>()
-  const recipe = recipes.find((r) => r.id === id)
   const { user, isOwner } = useAuth()
   const { toast } = useToast()
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  const [recipe, setRecipe] = useState<Recipe | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   const [title, setTitle] = useState("")
   const [description, setDescription] = useState("")
@@ -39,31 +42,55 @@ export default function EditRecipePage() {
   const [rating, setRating] = useState(0)
 
   useEffect(() => {
-    if (recipe) {
-      // Check if user is the owner
-      if (user && !isOwner(recipe.authorId)) {
+    const fetchRecipe = async () => {
+      try {
+        const response = await fetch(`https://kgoq68r29f.execute-api.eu-west-1.amazonaws.com/prod/recipes/${id}`)
+        if (!response.ok) {
+          throw new Error("Recipe not found")
+        }
+        const data = await response.json()
+        const fetchedRecipe = data.recipe
+
+        setRecipe(fetchedRecipe)
+
+        // Check if user is the owner
+        if (user && !isOwner(fetchedRecipe.authorId)) {
+          toast({
+            title: "Permission denied",
+            description: "You can only edit recipes you've created",
+            variant: "destructive",
+          })
+          router.push(`/recipes/${id}`)
+          return
+        }
+
+        // Populate form with recipe data
+        setTitle(fetchedRecipe.title)
+        setDescription(fetchedRecipe.description)
+        setImageUrl(fetchedRecipe.imageUrl || fetchedRecipe.image || "")
+        setPrepTime(fetchedRecipe.prepTime)
+        setCookTime(fetchedRecipe.cookTime)
+        setIngredients(fetchedRecipe.ingredients)
+        setInstructions(fetchedRecipe.instructions)
+        setTags(fetchedRecipe.tags)
+        setRating(fetchedRecipe.rating)
+      } catch (error) {
+        console.error("Error fetching recipe:", error)
         toast({
-          title: "Permission denied",
-          description: "You can only edit recipes you've created",
+          title: "Error",
+          description: "Failed to load recipe. Please try again.",
           variant: "destructive",
         })
-        router.push(`/recipes/${id}`)
-        return
+        router.push("/recipes")
+      } finally {
+        setIsLoading(false)
       }
-
-      setTitle(recipe.title)
-      setDescription(recipe.description)
-      setImageUrl(recipe.image)
-      setPrepTime(recipe.prepTime)
-      setCookTime(recipe.cookTime)
-      setIngredients(recipe.ingredients)
-      setInstructions(recipe.instructions)
-      setTags(recipe.tags)
-      setRating(recipe.rating)
-    } else {
-      router.push("/recipes")
     }
-  }, [recipe, router, user, isOwner, id, toast])
+
+    if (id) {
+      fetchRecipe()
+    }
+  }, [id, user, isOwner, router, toast])
 
   const addIngredient = () => {
     setIngredients([...ingredients, ""])
@@ -185,18 +212,96 @@ export default function EditRecipePage() {
     }
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    // In a real app, this would update the recipe in the database
-    // and handle image upload if needed
+    if (!recipe) return
 
-    toast({
-      title: "Recipe updated",
-      description: "Your recipe has been updated successfully!",
-    })
+    // Filter out empty ingredients and instructions
+    const filteredIngredients = ingredients.filter(ingredient => ingredient.trim() !== "")
+    const filteredInstructions = instructions.filter(instruction => instruction.trim() !== "")
 
-    router.push(`/recipes/${id}`)
+    if (filteredIngredients.length === 0) {
+      toast({
+        title: "Error",
+        description: "Please add at least one ingredient",
+        variant: "destructive",
+      })
+      return
+    }
+
+    if (filteredInstructions.length === 0) {
+      toast({
+        title: "Error",
+        description: "Please add at least one instruction",
+        variant: "destructive",
+      })
+      return
+    }
+
+    setIsSubmitting(true)
+
+    try {
+      const updateData = {
+        title,
+        description,
+        imageUrl: imageFile ? imagePreview : imageUrl,
+        tags,
+        rating,
+        prepTime,
+        cookTime,
+        ingredients: filteredIngredients,
+        instructions: filteredInstructions,
+      }
+
+      const response = await fetch(`https://kgoq68r29f.execute-api.eu-west-1.amazonaws.com/prod/recipes/${id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(updateData),
+      })
+
+      if (!response.ok) {
+        throw new Error("Failed to update recipe")
+      }
+
+      toast({
+        title: "Recipe updated",
+        description: "Your recipe has been updated successfully!",
+      })
+
+      router.push(`/recipes/${id}`)
+    } catch (error) {
+      console.error("Error updating recipe:", error)
+      toast({
+        title: "Error",
+        description: "Failed to update recipe. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  if (isLoading) {
+    return (
+      <ProtectedRoute>
+        <div className="container max-w-4xl mx-auto px-4 py-6 md:py-10">
+          <div className="text-center">Loading recipe...</div>
+        </div>
+      </ProtectedRoute>
+    )
+  }
+
+  if (!recipe) {
+    return (
+      <ProtectedRoute>
+        <div className="container max-w-4xl mx-auto px-4 py-6 md:py-10">
+          <div className="text-center">Recipe not found</div>
+        </div>
+      </ProtectedRoute>
+    )
   }
 
   return (
@@ -461,7 +566,9 @@ export default function EditRecipePage() {
             <Button type="button" variant="outline" onClick={() => window.history.back()}>
               Cancel
             </Button>
-            <Button type="submit">Save Changes</Button>
+            <Button type="submit" disabled={isSubmitting}>
+              {isSubmitting ? "Saving..." : "Save Changes"}
+            </Button>
           </div>
         </form>
       </div>
