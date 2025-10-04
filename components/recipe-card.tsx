@@ -19,6 +19,7 @@ interface Recipe {
   title: string
   description: string
   image: string
+  imageUrl: string
   rating: number
   prepTime: string
   cookTime: string
@@ -74,7 +75,7 @@ export default function RecipeCard({ recipe, onRemove }: RecipeCardProps) {
       <Card className="h-full overflow-hidden hover:shadow-md transition-shadow">
         <div className="aspect-video relative overflow-hidden">
           <Image
-            src={recipe.image || "/placeholder.svg"}
+            src={recipe.imageUrl || recipe.image || "/placeholder.svg"}
             alt={recipe.title}
             fill
             className="object-cover transition-transform hover:scale-105"
