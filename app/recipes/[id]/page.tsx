@@ -43,7 +43,7 @@ export default async function RecipePage({ params }: { params: { id: string } })
         </div>
 
         <div className="aspect-video relative rounded-lg overflow-hidden">
-          <Image src={recipe.image || "/placeholder.svg"} alt={recipe.title} fill className="object-cover" priority />
+          <Image src={recipe.imageUrl || recipe.image || "/placeholder.svg"} alt={recipe.title} fill className="object-cover" priority />
         </div>
 
         <div className="flex flex-wrap gap-4">
