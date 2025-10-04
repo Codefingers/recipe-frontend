@@ -7,7 +7,12 @@ import RecipeActions from "@/components/recipe-actions"
 import { Recipe } from "@/lib/data"
 
 async function getRecipe(id: string): Promise<Recipe | null> {
-  const response = await fetch(`https://kgoq68r29f.execute-api.eu-west-1.amazonaws.com/prod/recipes/${id}`)
+  const response = await fetch(`https://kgoq68r29f.execute-api.eu-west-1.amazonaws.com/prod/recipes/${id}`, {
+    cache: 'no-store',
+    headers: {
+      'Cache-Control': 'no-cache',
+    }
+  })
   if (!response.ok) {
     return null
   }

@@ -1,7 +1,12 @@
 import RecipeList from "@/components/recipe-list"
 
 export default async function Home() {
-  const recipes = await fetch('https://kgoq68r29f.execute-api.eu-west-1.amazonaws.com/prod/recipes')
+  const recipes = await fetch('https://kgoq68r29f.execute-api.eu-west-1.amazonaws.com/prod/recipes', {
+    cache: 'no-store',
+    headers: {
+      'Cache-Control': 'no-cache',
+    }
+  })
   const recipesData = await recipes.json()
 
   if (!recipesData) {
