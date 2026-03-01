@@ -19,7 +19,7 @@ import { useAuth } from "@/contexts/auth-context"
 export default function NewRecipePage() {
   const { toast } = useToast()
   const router = useRouter()
-  const { user } = useAuth()
+  const { user, getIdToken } = useAuth()
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   // Form state
@@ -209,10 +209,13 @@ export default function NewRecipePage() {
         authorName: user.name,
       }
 
+      const token = await getIdToken()
+
       const response = await fetch("https://kgoq68r29f.execute-api.eu-west-1.amazonaws.com/prod/recipes", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         body: JSON.stringify(recipeData),
       })

@@ -19,7 +19,7 @@ export default function MyRecipesPage() {
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedTags, setSelectedTags] = useState<string[]>([])
   const { favorites } = useFavorites()
-  const { user, createMockRecipe } = useAuth()
+  const { user, createMockRecipe, getIdToken } = useAuth()
   const { toast } = useToast()
   const [refreshKey, setRefreshKey] = useState(0)
   const [recipes, setRecipes] = useState<Recipe[]>([])
@@ -31,10 +31,12 @@ export default function MyRecipesPage() {
       try {
         setIsLoading(true)
         setError(null)
+        const token = await getIdToken()
         const response = await fetch('https://kgoq68r29f.execute-api.eu-west-1.amazonaws.com/prod/recipes', {
           cache: 'no-store',
           headers: {
             'Cache-Control': 'no-cache',
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
           }
         })
         if (!response.ok) {
