@@ -1,90 +1,101 @@
 "use client"
 
 import { createContext, useContext, useState, useEffect, type ReactNode } from "react"
-import { recipes } from "@/lib/data"
+import { initAmplifyIfNeeded } from "@/lib/cognito-config"
+import { getCurrentUser, fetchUserAttributes, fetchAuthSession, signInWithRedirect, signOut } from "aws-amplify/auth"
 
 type User = {
   id: string
   name: string
-  firstName: string
-  lastName: string
   email: string
+  firstName?: string
+  lastName?: string
 }
 
 type AuthContextType = {
   user: User | null
   isLoading: boolean
-  login: (email: string, password: string) => Promise<void>
-  register: (firstName: string, lastName: string, email: string, password: string) => Promise<void>
-  logout: () => void
+  login: () => Promise<void>
+  register: () => Promise<void>
+  logout: () => Promise<void>
   isOwner: (authorId: string) => boolean
   createMockRecipe: () => void
+  getIdToken: () => Promise<string | null>
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
+
+async function loadCurrentUser(): Promise<User | null> {
+  try {
+    const currentUser = await getCurrentUser()
+    const attributes = await fetchUserAttributes()
+
+    const id = attributes.sub ?? (currentUser as any).userId ?? currentUser.username
+    const email = attributes.email ?? ""
+    const firstName = attributes.given_name
+    const lastName = attributes.family_name
+
+    const name =
+      [firstName, lastName].filter(Boolean).join(" ") ||
+      (attributes["custom:full_name"] as string | undefined) ||
+      email ||
+      currentUser.username
+
+    return {
+      id,
+      name,
+      email,
+      firstName,
+      lastName,
+    }
+  } catch {
+    return null
+  }
+}
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
-    // Check if user is stored in localStorage on initial load
-    const storedUser = localStorage.getItem("user")
-    if (storedUser) {
-      setUser(JSON.parse(storedUser))
+    initAmplifyIfNeeded()
+
+    let isMounted = true
+
+    const init = async () => {
+      try {
+        const loadedUser = await loadCurrentUser()
+        if (isMounted) {
+          setUser(loadedUser)
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoading(false)
+        }
+      }
     }
-    setIsLoading(false)
+
+    void init()
+
+    return () => {
+      isMounted = false
+    }
   }, [])
 
-  const login = async (email: string, password: string) => {
-    // In a real app, this would make an API call to authenticate
-    setIsLoading(true)
-    try {
-      // Simulate API delay
-      await new Promise((resolve) => setTimeout(resolve, 1000))
-
-      // Mock successful login
-      const newUser = {
-        id: "user_" + Math.random().toString(36).substr(2, 9),
-        name: email.split("@")[0], // Use part of email as name for demo
-        firstName: email.split("@")[0],
-        lastName: "User",
-        email,
-      }
-
-      setUser(newUser)
-      localStorage.setItem("user", JSON.stringify(newUser))
-    } finally {
-      setIsLoading(false)
-    }
+  const login = async () => {
+    initAmplifyIfNeeded()
+    await signInWithRedirect()
   }
 
-  const register = async (firstName: string, lastName: string, email: string, password: string) => {
-    // In a real app, this would make an API call to register
-    setIsLoading(true)
-    try {
-      // Simulate API delay
-      await new Promise((resolve) => setTimeout(resolve, 1000))
-
-      // Mock successful registration
-      const newUser = {
-        id: "user_" + Math.random().toString(36).substr(2, 9),
-        name: `${firstName} ${lastName}`,
-        firstName,
-        lastName,
-        email,
-      }
-
-      setUser(newUser)
-      localStorage.setItem("user", JSON.stringify(newUser))
-    } finally {
-      setIsLoading(false)
-    }
+  const register = async () => {
+    initAmplifyIfNeeded()
+    await signInWithRedirect()
   }
 
-  const logout = () => {
+  const logout = async () => {
+    initAmplifyIfNeeded()
+    await signOut()
     setUser(null)
-    localStorage.removeItem("user")
   }
 
   const isOwner = (authorId: string) => {
@@ -92,46 +103,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   const createMockRecipe = () => {
-    if (!user) return
+    // This was previously mutating a local in-memory recipes array.
+    // Leave it as a no-op for now to avoid relying on client-side mocks.
+    return
+  }
 
-    // Create a mock recipe with the current user as author
-    const newRecipe = {
-      id: "user_recipe_" + Math.random().toString(36).substr(2, 9),
-      title: "My Homemade Recipe",
-      description: "A delicious recipe I created myself",
-      image: "/placeholder.svg?height=300&width=400",
-      rating: 5,
-      prepTime: "20 mins",
-      cookTime: "30 mins",
-      tags: ["Homemade", "Favorite", "Quick"],
-      ingredients: [
-        "2 cups flour",
-        "1 cup sugar",
-        "3 eggs",
-        "1/2 cup butter",
-        "1 tsp vanilla extract",
-        "2 tsp baking powder",
-        "1/2 tsp salt",
-      ],
-      instructions: [
-        "Preheat oven to 350°F (175°C).",
-        "Mix dry ingredients in a bowl.",
-        "In another bowl, cream butter and sugar.",
-        "Add eggs one at a time, then vanilla.",
-        "Gradually add dry ingredients to wet ingredients.",
-        "Pour batter into a greased pan.",
-        "Bake for 25-30 minutes until golden brown.",
-      ],
-      authorId: user.id,
-      authorName: user.name,
+  const getIdToken = async () => {
+    try {
+      const session = await fetchAuthSession()
+      return session.tokens?.idToken?.toString() ?? null
+    } catch {
+      return null
     }
-
-    // Add the new recipe to the recipes array
-    recipes.unshift(newRecipe)
   }
 
   return (
-    <AuthContext.Provider value={{ user, isLoading, login, register, logout, isOwner, createMockRecipe }}>
+    <AuthContext.Provider value={{ user, isLoading, login, register, logout, isOwner, createMockRecipe, getIdToken }}>
       {children}
     </AuthContext.Provider>
   )
