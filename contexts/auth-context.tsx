@@ -28,16 +28,35 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined)
 async function loadCurrentUser(): Promise<User | null> {
   try {
     const currentUser = await getCurrentUser()
-    const attributes = await fetchUserAttributes()
 
-    const id = attributes.sub ?? (currentUser as any).userId ?? currentUser.username
-    const email = attributes.email ?? ""
-    const firstName = attributes.given_name
-    const lastName = attributes.family_name
+    let attributes: Awaited<ReturnType<typeof fetchUserAttributes>> | null = null
+    try {
+      attributes = await fetchUserAttributes()
+    } catch (err) {
+      // A 400 from Cognito when fetching attributes should not prevent us
+      // from treating the user as signed in, as long as getCurrentUser succeeded.
+      console.error("[Auth] fetchUserAttributes failed", err)
+    }
+
+    const id =
+      attributes?.sub ??
+      // Amplify's getCurrentUser() exposes userSub/userId depending on version
+      (currentUser as any).userId ??
+      (currentUser as any).userSub ??
+      currentUser.username
+
+    const email =
+      attributes?.email ??
+      // Fallback to whatever login identifier Amplify has (e.g. email/username)
+      ((currentUser as any).signInDetails?.loginId as string | undefined) ??
+      ""
+
+    const firstName = attributes?.given_name
+    const lastName = attributes?.family_name
 
     const name =
       [firstName, lastName].filter(Boolean).join(" ") ||
-      (attributes["custom:full_name"] as string | undefined) ||
+      (attributes?.["custom:full_name"] as string | undefined) ||
       email ||
       currentUser.username
 
@@ -48,7 +67,8 @@ async function loadCurrentUser(): Promise<User | null> {
       firstName,
       lastName,
     }
-  } catch {
+  } catch (err) {
+    console.error("[Auth] getCurrentUser failed", err)
     return null
   }
 }
