@@ -17,7 +17,7 @@ export const cognitoConfig = {
           redirectSignIn: redirectSignIn ? [redirectSignIn] : [],
           redirectSignOut: redirectSignOut ? [redirectSignOut] : [],
           responseType: "code" as const,
-          scopes: ["openid", "email", "profile"],
+          scopes: ["openid", "email", "profile", "aws.cognito.signin.user.admin"],
         },
       },
     },
