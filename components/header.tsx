@@ -51,7 +51,7 @@ export default function Header() {
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
                   <DropdownMenuLabel>My Account</DropdownMenuLabel>
-                  <DropdownMenuLabel className="font-normal text-xs truncate">{user.email}</DropdownMenuLabel>
+                  <DropdownMenuLabel className="font-normal text-xs truncate">{user.name}</DropdownMenuLabel>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem asChild>
                     <Link href="/recipes">My Recipes</Link>
@@ -87,7 +87,7 @@ export default function Header() {
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
                 <DropdownMenuLabel>My Account</DropdownMenuLabel>
-                <DropdownMenuLabel className="font-normal text-xs truncate">{user.email}</DropdownMenuLabel>
+                <DropdownMenuLabel className="font-normal text-xs truncate">{user.name}</DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem asChild>
                   <Link href="/recipes">My Recipes</Link>

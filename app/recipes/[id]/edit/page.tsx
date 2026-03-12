@@ -20,7 +20,7 @@ import { Recipe } from "@/lib/data"
 export default function EditRecipePage() {
   const router = useRouter()
   const { id } = useParams<{ id: string }>()
-  const { user, isOwner } = useAuth()
+  const { user, isOwner, getIdToken } = useAuth()
   const { toast } = useToast()
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -259,10 +259,13 @@ export default function EditRecipePage() {
         instructions: filteredInstructions,
       }
 
+      const token = await getIdToken()
+
       const response = await fetch(`https://kgoq68r29f.execute-api.eu-west-1.amazonaws.com/prod/recipes/${id}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         body: JSON.stringify(updateData),
       })
@@ -286,6 +289,44 @@ export default function EditRecipePage() {
       })
     } finally {
       setIsSubmitting(false)
+    }
+  }
+
+  const handleDelete = async () => {
+    if (!recipe) return
+
+    const confirmed = window.confirm("Are you sure you want to delete this recipe? This action cannot be undone.")
+    if (!confirmed) {
+      return
+    }
+
+    try {
+      const token = await getIdToken()
+
+      const response = await fetch(`https://kgoq68r29f.execute-api.eu-west-1.amazonaws.com/prod/recipes/${id}`, {
+        method: "DELETE",
+        headers: {
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+      })
+
+      if (!response.ok) {
+        throw new Error("Failed to delete recipe")
+      }
+
+      toast({
+        title: "Recipe deleted",
+        description: "Your recipe has been deleted successfully.",
+      })
+
+      router.push("/recipes")
+    } catch (error) {
+      console.error("Error deleting recipe:", error)
+      toast({
+        title: "Error",
+        description: "Failed to delete recipe. Please try again.",
+        variant: "destructive",
+      })
     }
   }
 
@@ -567,13 +608,18 @@ export default function EditRecipePage() {
             ))}
           </div>
 
-          <div className="flex justify-end gap-4">
-            <Button type="button" variant="outline" onClick={() => window.history.back()}>
-              Cancel
+          <div className="flex justify-between gap-4">
+            <Button type="button" variant="destructive" onClick={handleDelete}>
+              Delete Recipe
             </Button>
-            <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting ? "Saving..." : "Save Changes"}
-            </Button>
+            <div className="flex gap-4">
+              <Button type="button" variant="outline" onClick={() => window.history.back()}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={isSubmitting}>
+                {isSubmitting ? "Saving..." : "Save Changes"}
+              </Button>
+            </div>
           </div>
         </form>
       </div>

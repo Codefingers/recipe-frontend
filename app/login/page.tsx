@@ -21,10 +21,10 @@ export default function LoginPage() {
     return (
       <div className="container max-w-md mx-auto px-4 py-16">
         <Card>
-          <CardHeader className="space-y-1">
+            <CardHeader className="space-y-1">
             <CardTitle className="text-2xl font-bold">You&apos;re already signed in</CardTitle>
             <CardDescription className="space-y-1">
-              <p className="text-sm text-muted-foreground break-all">{user.email}</p>
+              <p className="text-sm text-muted-foreground break-all">{user.name}</p>
               <p className="text-sm text-muted-foreground">
                 You can continue using Plukos Recipes or sign out below.
               </p>

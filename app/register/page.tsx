@@ -22,14 +22,14 @@ export default function RegisterPage() {
       <div className="container max-w-md mx-auto px-4 py-16">
         <Card>
           <CardHeader className="space-y-1">
-            <CardTitle className="text-2xl font-bold">You already have an account</CardTitle>
-            <CardDescription className="space-y-1">
-              <p className="text-sm text-muted-foreground break-all">{user.email}</p>
-              <p className="text-sm text-muted-foreground">
-                You can keep using this account or sign out to create a new one.
-              </p>
-            </CardDescription>
-          </CardHeader>
+          <CardTitle className="text-2xl font-bold">You already have an account</CardTitle>
+          <CardDescription className="space-y-1">
+            <p className="text-sm text-muted-foreground break-all">{user.name}</p>
+            <p className="text-sm text-muted-foreground">
+              You can keep using this account or sign out to create a new one.
+            </p>
+          </CardDescription>
+        </CardHeader>
           <CardFooter className="flex flex-col space-y-3">
             <Button className="w-full" onClick={() => router.push("/recipes")}>
               Go to my recipes
